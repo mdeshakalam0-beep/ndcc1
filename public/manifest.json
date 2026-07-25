@@ -1,0 +1,18 @@
+{
+  "name": "New Direction Coaching Centre Student Portal",
+  "short_name": "NDCC Portal",
+  "description": "Premium student portal dashboard and MCQ practice examinations for NDCC.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFC",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
