@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, hasConfig } from './config/firebase';
 
 import type { StudentProfile, Subject, ObjectiveTest, NotificationItem } from './types';
 import { initialProfile, mockSubjects, mockTests, mockNotifications } from './mockData';
@@ -7,6 +10,7 @@ import { initialProfile, mockSubjects, mockTests, mockNotifications } from './mo
 // Layout & Modals
 import Layout from './components/Layout';
 import QuizModal from './components/QuizModal';
+import { LogoSVG } from './components/Illustrations';
 
 // Pages
 import Splash from './pages/Splash';
@@ -26,6 +30,10 @@ export default function App() {
     displayName: string | null;
   } | null>(null);
 
+  const [authLoading, setAuthLoading] = useState(true);
+  const [hasRegistered, setHasRegistered] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+
   // App core domain states (Synced globally)
   const [profile, setProfile] = useState<StudentProfile>(initialProfile);
   const [subjects] = useState<Subject[]>(mockSubjects);
@@ -34,6 +42,51 @@ export default function App() {
   
   // MCQ Test running modal state
   const [activeQuiz, setActiveQuiz] = useState<ObjectiveTest | null>(null);
+
+  // Listen to Firebase Auth state change to persist login state across reloads/redirects
+  useEffect(() => {
+    if (!hasConfig || !auth) {
+      setAuthLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setDbError(null);
+      if (user) {
+        const loggedInUser = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        };
+        setCurrentUser(loggedInUser);
+
+        // Check if student profile details document exists in Firestore using UID
+        try {
+          if (db) {
+            const docRef = doc(db, "students", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              setProfile(docSnap.data() as StudentProfile);
+              setHasRegistered(true);
+            } else {
+              setHasRegistered(false);
+            }
+          }
+        } catch (err: any) {
+          console.error("Firestore read error on auth state change:", err);
+          setDbError("Database sync issue. Using local profile backup.");
+          // Non-fatal fallback for testing/security rules configuration
+          setHasRegistered(false);
+        }
+      } else {
+        setCurrentUser(null);
+        setHasRegistered(false);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Mark all notifications as read
   const handleMarkAllNotificationsRead = () => {
@@ -75,8 +128,21 @@ export default function App() {
     setNotifications([newNotif, ...notifications]);
   };
 
+
+
   const unreadCount = notifications.filter((n) => !n.read).length;
   const hasPendingTests = tests.some((t) => !t.completed);
+
+  // Authentication Loading Screen
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen bg-slate-900 text-white flex flex-col items-center justify-center space-y-4">
+        <LogoSVG className="w-16 h-16 animate-bounce-soft" />
+        <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+        <p className="text-xs text-slate-400 font-medium tracking-wide">Syncing Session...</p>
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -85,39 +151,62 @@ export default function App() {
         unreadNotificationsCount={unreadCount}
         hasPendingTests={hasPendingTests}
       >
+        {dbError && (
+          <div className="bg-orange-500 text-white text-[10px] font-bold py-1.5 px-4 text-center select-none shrink-0 z-50 animate-fade-in flex items-center justify-center space-x-1">
+            <span className="material-symbols-rounded text-xs">database_off</span>
+            <span>{dbError}</span>
+          </div>
+        )}
         <Routes>
-          {/* Public Routing */}
+          {/* Public Views */}
           <Route path="/" element={<Splash />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route 
             path="/login" 
             element={
-              <Login 
-                onLoginSuccess={(user) => {
-                  setCurrentUser(user);
-                  if (user.displayName) {
-                    setProfile(prev => ({ ...prev, name: user.displayName! }));
-                  }
-                }} 
-              />
+              currentUser ? (
+                hasRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />
+              ) : (
+                <Login 
+                  onLoginSuccess={(user) => {
+                    setCurrentUser(user);
+                    if (user.displayName) {
+                      setProfile(prev => ({ ...prev, name: user.displayName! }));
+                    }
+                    if (!hasConfig) {
+                      // Bypass Firestore document checks in local Mock Mode
+                      setHasRegistered(false);
+                    }
+                  }} 
+                />
+              )
             } 
           />
 
-          {/* Registration & Onboarding */}
+          {/* Registration Forms */}
           <Route 
             path="/register" 
             element={
               currentUser ? (
-                <Register 
-                  uid={currentUser.uid}
-                  profile={profile}
-                  onRegisterComplete={(p) => setProfile(p)}
-                />
+                hasRegistered ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Register 
+                    uid={currentUser.uid}
+                    profile={profile}
+                    onRegisterComplete={(p) => {
+                      setProfile(p);
+                      setHasRegistered(true);
+                    }}
+                  />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
             } 
           />
+
+          {/* Onboarding Guide */}
           <Route 
             path="/onboarding" 
             element={
@@ -125,18 +214,22 @@ export default function App() {
             } 
           />
 
-          {/* Protected Dashboard Views */}
+          {/* Protected Main Views */}
           <Route 
             path="/dashboard" 
             element={
               currentUser ? (
-                <Dashboard 
-                  profile={profile}
-                  subjects={subjects}
-                  tests={tests}
-                  notifications={notifications}
-                  onStartQuiz={(t) => setActiveQuiz(t)}
-                />
+                hasRegistered ? (
+                  <Dashboard 
+                    profile={profile}
+                    subjects={subjects}
+                    tests={tests}
+                    notifications={notifications}
+                    onStartQuiz={(t) => setActiveQuiz(t)}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -146,13 +239,17 @@ export default function App() {
             path="/dashboard/subjects" 
             element={
               currentUser ? (
-                <Dashboard 
-                  profile={profile}
-                  subjects={subjects}
-                  tests={tests}
-                  notifications={notifications}
-                  onStartQuiz={(t) => setActiveQuiz(t)}
-                />
+                hasRegistered ? (
+                  <Dashboard 
+                    profile={profile}
+                    subjects={subjects}
+                    tests={tests}
+                    notifications={notifications}
+                    onStartQuiz={(t) => setActiveQuiz(t)}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -162,13 +259,17 @@ export default function App() {
             path="/dashboard/tests" 
             element={
               currentUser ? (
-                <Dashboard 
-                  profile={profile}
-                  subjects={subjects}
-                  tests={tests}
-                  notifications={notifications}
-                  onStartQuiz={(t) => setActiveQuiz(t)}
-                />
+                hasRegistered ? (
+                  <Dashboard 
+                    profile={profile}
+                    subjects={subjects}
+                    tests={tests}
+                    notifications={notifications}
+                    onStartQuiz={(t) => setActiveQuiz(t)}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -178,54 +279,69 @@ export default function App() {
             path="/dashboard/profile" 
             element={
               currentUser ? (
-                <Dashboard 
-                  profile={profile}
-                  subjects={subjects}
-                  tests={tests}
-                  notifications={notifications}
-                  onStartQuiz={(t) => setActiveQuiz(t)}
-                />
+                hasRegistered ? (
+                  <Dashboard 
+                    profile={profile}
+                    subjects={subjects}
+                    tests={tests}
+                    notifications={notifications}
+                    onStartQuiz={(t) => setActiveQuiz(t)}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
             } 
           />
 
-          {/* Other Protected Pages */}
+          {/* Notifications */}
           <Route 
             path="/notifications" 
             element={
               currentUser ? (
-                <Notifications 
-                  notifications={notifications}
-                  onToggleRead={handleToggleNotificationRead}
-                  onMarkAllRead={handleMarkAllNotificationsRead}
-                />
+                hasRegistered ? (
+                  <Notifications 
+                    notifications={notifications}
+                    onToggleRead={handleToggleNotificationRead}
+                    onMarkAllRead={handleMarkAllNotificationsRead}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
             } 
           />
+
+          {/* Edit Profile */}
           <Route 
             path="/profile/edit" 
             element={
               currentUser ? (
-                <EditProfile 
-                  uid={currentUser.uid}
-                  profile={profile}
-                  onProfileUpdate={(p) => {
-                    setProfile(p);
-                    const newNotif: NotificationItem = {
-                      id: `notif-${Date.now()}`,
-                      title: "Profile Edited",
-                      description: "Your student registry profile details were saved successfully.",
-                      time: "Just now",
-                      category: "profile",
-                      read: false
-                    };
-                    setNotifications([newNotif, ...notifications]);
-                  }}
-                />
+                hasRegistered ? (
+                  <EditProfile 
+                    uid={currentUser.uid}
+                    profile={profile}
+                    onProfileUpdate={(p) => {
+                      setProfile(p);
+                      // Insert notification
+                      const newNotif: NotificationItem = {
+                        id: `notif-${Date.now()}`,
+                        title: "Profile Edited",
+                        description: "Your student registry profile details were saved successfully.",
+                        time: "Just now",
+                        category: "profile",
+                        read: false
+                      };
+                      setNotifications([newNotif, ...notifications]);
+                    }}
+                  />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -237,7 +353,7 @@ export default function App() {
         </Routes>
       </Layout>
 
-      {/* Render the MCQ Test modal overlay if triggered */}
+      {/* Render active Quiz modal */}
       {activeQuiz && (
         <QuizModal
           test={activeQuiz}
