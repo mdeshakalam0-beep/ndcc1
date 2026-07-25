@@ -52,10 +52,15 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
       setFormStep(2);
     } else {
       setIsSaving(true);
+      const getClassIdFromName = (name: string): string => {
+        return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      };
+
       const studentProfile: StudentProfile = {
         name: formName,
         fatherName: formFatherName,
         className: formClass,
+        classId: getClassIdFromName(formClass),
         dob: formDob,
         gender: formGender,
         village: formVillage,

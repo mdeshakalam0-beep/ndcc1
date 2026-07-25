@@ -2,6 +2,7 @@ export interface StudentProfile {
   name: string;
   fatherName: string;
   className: string;
+  classId?: string;
   dob: string;
   gender: string;
   village: string;

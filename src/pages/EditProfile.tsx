@@ -57,10 +57,15 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
         avatarUrl = await uploadImageToCloudinary(customFile);
       }
 
+      const getClassIdFromName = (name: string): string => {
+        return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      };
+
       const updatedProfile: StudentProfile = {
         name: formName,
         fatherName: formFatherName,
         className: formClass,
+        classId: getClassIdFromName(formClass),
         dob: formDob,
         gender: formGender,
         village: formVillage,
