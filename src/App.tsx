@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { auth, db, hasConfig } from './config/firebase';
 
@@ -127,20 +127,9 @@ export default function App() {
       return;
     }
 
-    // Resolve Google redirect sign in results on mount
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          console.log("Firebase Redirect sign-in completed for:", result.user.email);
-        }
-      })
-      .catch((err: any) => {
-        console.error("Firebase Redirect auth resolution error:", err);
-        setDbError("Sign in failed. Please try again.");
-      });
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("🔒 [Auth Observer] State changed. User logged in:", !!user);
+      console.log("👤 [Auth Observer] auth.currentUser:", auth && auth.currentUser ? auth.currentUser.email : "null");
       setDbError(null);
       if (user) {
         console.log("🆔 [Auth Observer] Current UID:", user.uid);

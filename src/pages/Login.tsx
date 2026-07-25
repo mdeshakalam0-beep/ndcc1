@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithRedirect } from 'firebase/auth';
+import { signInWithPopup, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth, googleProvider, hasConfig } from '../config/firebase';
 import { LogoSVG, LoginIllustrationSVG } from '../components/Illustrations';
 
@@ -19,11 +19,27 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
     if (hasConfig && auth && googleProvider) {
       try {
-        // Use redirect instead of popup to prevent COOP browser policy warnings
-        await signInWithRedirect(auth, googleProvider);
+        console.log("🔒 [Login] Setting persistence to browserLocalPersistence...");
+        await setPersistence(auth, browserLocalPersistence);
+        console.log("🔑 [Login] Persistence set successfully. Triggering signInWithPopup...");
+        
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log("✅ [Login] signInWithPopup resolved successfully.");
+        console.log("🆔 [Login] User UID:", result.user.uid);
+        console.log("📧 [Login] User Email:", result.user.email);
+        
+        onLoginSuccess({
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName
+        });
+        
+        // Navigation is guarded and updated in App.tsx by the Auth observer, 
+        // but we navigate to /register here as a responsive fallback
+        navigate('/register');
       } catch (err: any) {
-        console.error("Firebase Redirect Sign In error:", err);
-        setError(err.message || "Failed to trigger Google Authentication.");
+        console.error("❌ [Login] signInWithPopup failed:", err);
+        setError(err.message || "Failed to complete Google Authentication.");
         setIsLoading(false);
       }
     } else {
@@ -62,7 +78,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-650 text-xs rounded-xl font-semibold">
+            <div className="p-3 bg-red-50 border border-red-200 text-red-650 text-xs rounded-xl font-semibold text-left">
               {error}
             </div>
           )}
