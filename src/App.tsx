@@ -74,14 +74,53 @@ export default function App() {
 
     // 2. Fetch Class Mock Tests
     try {
-      const testsSnap = await getDocs(collection(db, "tests"));
+      console.log("🔍 [Firestore Read] Fetching collection: 'objectiveTests'");
+      const testsSnap = await getDocs(collection(db, "objectiveTests"));
       const testsList: ObjectiveTest[] = [];
+      let totalDocs = 0;
+      let excludedCount = 0;
+      
       testsSnap.forEach(docSnap => {
-        testsList.push({ id: docSnap.id, ...docSnap.data() } as ObjectiveTest);
+        totalDocs++;
+        const data = docSnap.data();
+        
+        // Audit filtering checks
+        let isExcluded = false;
+        let excludeReason = "";
+        
+        // Filter out unpublished tests
+        if (data.published === false) {
+          isExcluded = true;
+          excludeReason = "test.published is false";
+        }
+        // Filter out inactive tests
+        else if (data.active === false || data.status === "inactive") {
+          isExcluded = true;
+          excludeReason = "test.active is false or status is inactive";
+        }
+        
+        if (!isExcluded) {
+          testsList.push({ 
+            id: docSnap.id, 
+            subject: data.subject || "General",
+            subjectId: data.subjectId || "",
+            questions: data.questions || (data.questionsList ? data.questionsList.length : 10),
+            marks: data.marks || 100,
+            timeLimit: data.timeLimit || 30,
+            completed: data.completed || false,
+            score: data.score,
+            questionsList: data.questionsList || []
+          } as ObjectiveTest);
+        } else {
+          excludedCount++;
+          console.log(`🚫 [Firestore Read] Excluded test document ID '${docSnap.id}'. Reason: ${excludeReason}`);
+        }
       });
+      
+      console.log(`📊 [Firestore Read] Received ${totalDocs} documents from 'objectiveTests'. Filtered Result Count: ${testsList.length}. Excluded: ${excludedCount}.`);
       setTests(testsList);
     } catch (err) {
-      console.warn("⚠️ Firestore 'tests' read failed (Verify security rules or collection existence):", err);
+      console.warn("⚠️ Firestore 'objectiveTests' read failed (Verify security rules or collection existence):", err);
     }
 
     // 3. Fetch Bulletin Announcements (Sorted by timestamp)

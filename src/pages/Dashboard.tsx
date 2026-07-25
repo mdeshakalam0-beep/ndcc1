@@ -39,6 +39,7 @@ export default function Dashboard({
   // Hero Slider State
   const [heroIndex, setHeroIndex] = useState(0);
   const [subjectSearch, setSubjectSearch] = useState('');
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string | null>(null);
 
   // Auto-slide hero banner
   useEffect(() => {
@@ -60,6 +61,10 @@ export default function Dashboard({
   const overallProgress = subjects.length > 0 
     ? Math.round(subjects.reduce((acc, sub) => acc + (sub.progress || 0), 0) / subjects.length)
     : 0;
+
+  const filteredTests = selectedSubjectFilter
+    ? tests.filter(t => t.subject.toLowerCase() === selectedSubjectFilter.toLowerCase() || t.subjectId === selectedSubjectFilter)
+    : tests;
 
   return (
     <div className="flex-1 flex flex-col pb-8">
@@ -458,9 +463,38 @@ export default function Dashboard({
             </div>
           </div>
 
-          {tests.length > 0 ? (
+          {/* Subject Filter Pills */}
+          {subjects.length > 0 && (
+            <div className="flex space-x-2 overflow-x-auto pb-1 no-scrollbar select-none">
+              <button
+                onClick={() => setSelectedSubjectFilter(null)}
+                className={`px-3-5 py-1.5 rounded-full text-[10px] font-bold border transition shrink-0 cursor-pointer ${
+                  selectedSubjectFilter === null
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                    : 'bg-white border-slate-205 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                All Subjects
+              </button>
+              {subjects.map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubjectFilter(sub.name)}
+                  className={`px-3-5 py-1.5 rounded-full text-[10px] font-bold border transition shrink-0 cursor-pointer ${
+                    selectedSubjectFilter === sub.name
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                      : 'bg-white border-slate-205 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {sub.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredTests.length > 0 ? (
             <div className="space-y-4">
-              {tests.map((test) => (
+              {filteredTests.map((test) => (
                 <div 
                   key={test.id} 
                   className="bg-white p-4 rounded-[24px] border border-slate-105 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition duration-200"

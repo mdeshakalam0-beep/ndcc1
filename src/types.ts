@@ -21,6 +21,7 @@ export interface Subject {
 export interface ObjectiveTest {
   id: string;
   subject: string;
+  subjectId?: string;
   questions: number;
   marks: number;
   timeLimit: number; // in minutes
