@@ -59,24 +59,33 @@ export default function App() {
     if (!db) return;
     setDataLoading(true);
     setDbError(null);
+    
+    // 1. Fetch Class Subjects
     try {
-      // 1. Fetch Class Subjects
       const subsSnap = await getDocs(collection(db, "subjects"));
       const subsList: Subject[] = [];
       subsSnap.forEach(docSnap => {
         subsList.push({ id: docSnap.id, ...docSnap.data() } as Subject);
       });
       setSubjects(subsList);
+    } catch (err) {
+      console.warn("⚠️ Firestore 'subjects' read failed (Verify security rules or collection existence):", err);
+    }
 
-      // 2. Fetch Class Mock Tests
+    // 2. Fetch Class Mock Tests
+    try {
       const testsSnap = await getDocs(collection(db, "tests"));
       const testsList: ObjectiveTest[] = [];
       testsSnap.forEach(docSnap => {
         testsList.push({ id: docSnap.id, ...docSnap.data() } as ObjectiveTest);
       });
       setTests(testsList);
+    } catch (err) {
+      console.warn("⚠️ Firestore 'tests' read failed (Verify security rules or collection existence):", err);
+    }
 
-      // 3. Fetch Bulletin Announcements (Sorted by timestamp)
+    // 3. Fetch Bulletin Announcements (Sorted by timestamp)
+    try {
       const notifsList: NotificationItem[] = [];
       try {
         const notifQuery = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
@@ -92,22 +101,23 @@ export default function App() {
         });
       }
       setNotifications(notifsList);
+    } catch (err) {
+      console.warn("⚠️ Firestore 'notifications' read failed (Verify security rules or collection existence):", err);
+    }
 
-      // 4. Fetch Hero Slider Announcements
+    // 4. Fetch Hero Slider Announcements
+    try {
       const bannersSnap = await getDocs(collection(db, "banners"));
       const bannersList: any[] = [];
       bannersSnap.forEach(docSnap => {
         bannersList.push({ id: docSnap.id, ...docSnap.data() });
       });
       setBanners(bannersList);
-
-    } catch (err: any) {
-      console.error("Firestore database fetch warning:", err);
-      // Fail silently for lists to allow empty state renders if database has schema differences
-      setDbError("Database read issue. Verify Firestore schemas.");
-    } finally {
-      setDataLoading(false);
+    } catch (err) {
+      console.warn("⚠️ Firestore 'banners' read failed (Verify security rules or collection existence):", err);
     }
+
+    setDataLoading(false);
   };
 
   // Listen to Firebase Auth state change to persist login state across reloads/redirects
