@@ -120,13 +120,23 @@ export default function App() {
             ? normalizedQuestions.length 
             : (typeof data.questions === 'number' ? data.questions : 10);
 
+          const durationValue = typeof data.duration === 'number' 
+            ? data.duration 
+            : (typeof data.timeLimit === 'number' 
+              ? data.timeLimit 
+              : (typeof data.time === 'number' 
+                ? data.time 
+                : 30));
+          
+          console.log(`⏱️ [Firestore Read] Test '${data.subject || "General"}' (ID: ${docSnap.id}): Duration received = ${data.duration ?? data.timeLimit ?? data.time ?? "undefined"} mins. Duration displayed in UI = ${durationValue} mins.`);
+
           testsList.push({ 
             id: docSnap.id, 
             subject: data.subject || "General",
             subjectId: data.subjectId || "",
             questions: questionCount,
             marks: data.marks || 100,
-            timeLimit: data.timeLimit || 30,
+            timeLimit: durationValue,
             completed: data.completed || false,
             score: data.score,
             questionsList: normalizedQuestions
