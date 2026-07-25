@@ -6,6 +6,7 @@ export interface StudentProfile {
   gender: string;
   village: string;
   profilePic: string;
+  isRegistered?: boolean;
 }
 
 export interface Subject {

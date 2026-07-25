@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
-import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { auth, db, hasConfig } from './config/firebase';
 
 import type { StudentProfile, Subject, ObjectiveTest, NotificationItem } from './types';
@@ -140,8 +140,10 @@ export default function App() {
       });
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("🔒 [Auth Observer] State changed. User logged in:", !!user);
       setDbError(null);
       if (user) {
+        console.log("🆔 [Auth Observer] Current UID:", user.uid);
         const loggedInUser = {
           uid: user.uid,
           email: user.email,
@@ -152,23 +154,54 @@ export default function App() {
         try {
           if (db) {
             const docRef = doc(db, "students", user.uid);
+            console.log("🔍 [Firestore] Reading student doc under path: students/" + user.uid);
             const docSnap = await getDoc(docRef);
+            
             if (docSnap.exists()) {
-              setProfile(docSnap.data() as StudentProfile);
-              setHasRegistered(true);
-              // Trigger collection fetch
-              await fetchFirestoreData();
+              const docData = docSnap.data();
+              console.log("📄 [Firestore] Student doc read result successfully:", docData);
+              setProfile(docData as StudentProfile);
+              
+              if (docData.isRegistered === true) {
+                console.log("📍 [Route Decision] Student is registered. Redirecting to Dashboard.");
+                setHasRegistered(true);
+                await fetchFirestoreData();
+              } else {
+                console.log("📍 [Route Decision] Student has document but is not registered. Redirecting to Registration Form.");
+                setHasRegistered(false);
+              }
             } else {
+              console.log("📄 [Firestore] Student document does not exist. Auto-creating base profile document.");
+              const baseProfile = {
+                name: user.displayName || "",
+                fatherName: "",
+                className: "Class 12 - Science",
+                dob: "",
+                gender: "Male",
+                village: "",
+                profilePic: user.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200",
+                isRegistered: false
+              };
+              
+              try {
+                await setDoc(doc(db, "students", user.uid), baseProfile);
+                console.log("✍️ [Firestore] Auto-write student doc result: SUCCESS");
+              } catch (writeErr) {
+                console.error("❌ [Firestore] Auto-write student doc result: FAILED", writeErr);
+              }
+              
+              setProfile(baseProfile as StudentProfile);
               setHasRegistered(false);
+              console.log("📍 [Route Decision] First-time login. Redirecting to Registration Form.");
             }
           }
         } catch (err: any) {
-          console.error("Firestore student doc read error:", err);
+          console.error("❌ [Firestore] Doc read failed with exception:", err);
           setDbError("Database sync warning. Check student permissions.");
           setHasRegistered(false);
         }
       } else {
-        // Clear all states on null session
+        console.log("🆔 [Auth Observer] No active session. Route decision: Redirect to Login");
         setCurrentUser(null);
         setProfile(initialEmptyProfile);
         setHasRegistered(false);

@@ -59,22 +59,24 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
         dob: formDob,
         gender: formGender,
         village: formVillage,
-        profilePic: selectedAvatar
+        profilePic: selectedAvatar,
+        isRegistered: true
       };
 
       try {
         if (hasConfig && db) {
           // Write to Cloud Firestore
+          console.log("🔍 [Firestore Register] Attempting write to path: students/" + uid);
           await setDoc(doc(db, "students", uid), studentProfile);
-          console.log("Profile registered in Firestore successfully.");
+          console.log("✅ [Firestore Register] Profile document saved successfully in Firestore.");
         } else {
-          console.warn("Running in local mock mode. Profile data bypasses Firestore.");
+          console.warn("⚠️ Running in local mock mode. Profile data bypasses Firestore.");
         }
         
         onRegisterComplete(studentProfile);
         navigate('/onboarding');
       } catch (err) {
-        console.error("Firestore registration failed:", err);
+        console.error("❌ [Firestore Register] Save failed with exception:", err);
         // Fallback to local success anyway to maintain usability
         onRegisterComplete(studentProfile);
         navigate('/onboarding');

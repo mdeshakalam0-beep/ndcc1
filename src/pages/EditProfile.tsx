@@ -70,10 +70,11 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
       // 2. Commit to Firestore
       if (hasConfig && db) {
         try {
-          await setDoc(doc(db, "students", uid), updatedProfile);
-          console.log("Profile updated in Firestore successfully.");
+          console.log("🔍 [Firestore Edit] Attempting profile update to path: students/" + uid);
+          await setDoc(doc(db, "students", uid), { ...updatedProfile, isRegistered: true });
+          console.log("✅ [Firestore Edit] Profile updated successfully in Firestore.");
         } catch (dbErr) {
-          console.warn("⚠️ Firestore write failed. Make sure to configure your Firestore security rules: ", dbErr);
+          console.warn("⚠️ [Firestore Edit] Write failed (Verify rules):", dbErr);
         }
       }
 
