@@ -17,7 +17,7 @@ export default function Notifications({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-slate-50 p-5 z-20 animate-fade-in">
+    <div className="absolute inset-0 flex flex-col bg-slate-50 px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] z-20 animate-fade-in">
       {/* Header bar */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100 select-none">
         <button 

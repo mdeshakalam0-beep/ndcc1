@@ -34,11 +34,11 @@ export default function Layout({
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden font-sans select-none antialiased">
+    <div className="h-[100dvh] w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden font-sans select-none antialiased">
       
       {/* Common Header for Authenticated Pages */}
       {isAuthPage && (
-        <header className="bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between z-10 select-none shrink-0 shadow-sm">
+        <header className="bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-4 flex items-center justify-between z-10 select-none shrink-0 shadow-sm">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
             <LogoSVG className="w-8 h-8 filter drop-shadow-[0_2px_4px_rgba(37,99,235,0.1)]" />
             <div>
@@ -79,7 +79,7 @@ export default function Layout({
 
       {/* Bottom Floating Navigation Bar (Aligned and centered, optimized for touch interaction) */}
       {location.pathname.startsWith('/dashboard') && (
-        <div className="p-4 shrink-0 bg-white border-t border-slate-100 flex justify-center z-10 select-none">
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shrink-0 bg-white border-t border-slate-100 flex justify-center z-10 select-none">
           <nav className="w-full max-w-md bg-white/95 backdrop-blur-md border border-slate-150/70 h-16 rounded-[24px] shadow-lg flex items-center justify-around px-2">
             {[
               { id: 'home', label: 'Home', icon: 'home', path: '/dashboard' },

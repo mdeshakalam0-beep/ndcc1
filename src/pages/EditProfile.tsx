@@ -89,7 +89,7 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-slate-50 p-6 z-20 animate-fade-in">
+    <div className="absolute inset-0 flex flex-col bg-slate-50 px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-20 animate-fade-in">
       
       {/* Header bar */}
       <div className="flex items-center justify-between mb-4 select-none">

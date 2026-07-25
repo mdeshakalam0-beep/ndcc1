@@ -62,7 +62,7 @@ export default function Dashboard({
     : 0;
 
   return (
-    <div className="flex-1 flex flex-col pb-24 overflow-y-auto no-scrollbar">
+    <div className="flex-1 flex flex-col pb-8">
       
       {/* 1. HOME TAB */}
       {activeTab === 'home' && (

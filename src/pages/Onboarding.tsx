@@ -35,7 +35,7 @@ export default function Onboarding() {
   ];
 
   return (
-    <div className="absolute inset-0 flex flex-col justify-between p-6 bg-white z-20 animate-fade-in select-none">
+    <div className="absolute inset-0 flex flex-col justify-between px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-white z-20 animate-fade-in select-none">
       {/* Onboarding Skip */}
       <div className="flex justify-end pt-2">
         <button 

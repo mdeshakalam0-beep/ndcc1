@@ -58,7 +58,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col justify-between p-6 bg-slate-50 z-20 animate-fade-in">
+    <div className="absolute inset-0 flex flex-col justify-between px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-slate-50 z-20 animate-fade-in">
       <div className="flex items-center space-x-3 mt-4">
         <LogoSVG className="w-8 h-8" />
         <span className="font-bold text-sm tracking-wide uppercase text-slate-800">NDCC Portal</span>

@@ -13,7 +13,7 @@ export default function Splash() {
   }, [navigate]);
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 text-white flex flex-col items-center justify-between p-8 z-30 select-none animate-fade-in">
+    <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 text-white flex flex-col items-center justify-between px-8 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))] z-30 select-none animate-fade-in">
       <div></div>
       
       <div className="flex flex-col items-center space-y-6 text-center animate-slide-up">
