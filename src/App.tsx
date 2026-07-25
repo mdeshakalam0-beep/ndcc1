@@ -75,15 +75,6 @@ export default function App() {
     setNotifications([newNotif, ...notifications]);
   };
 
-  // Reset entire state machine (for debugging/review demo triggers)
-  const handleResetFlow = () => {
-    setCurrentUser(null);
-    setProfile(initialProfile);
-    setTests(mockTests);
-    setNotifications(mockNotifications);
-    setActiveQuiz(null);
-  };
-
   const unreadCount = notifications.filter((n) => !n.read).length;
   const hasPendingTests = tests.some((t) => !t.completed);
 
@@ -93,7 +84,6 @@ export default function App() {
         profile={profile}
         unreadNotificationsCount={unreadCount}
         hasPendingTests={hasPendingTests}
-        resetFlow={handleResetFlow}
       >
         <Routes>
           {/* Public Routing */}
@@ -105,7 +95,6 @@ export default function App() {
               <Login 
                 onLoginSuccess={(user) => {
                   setCurrentUser(user);
-                  // Update profile name dynamically from Google authentication payload if available
                   if (user.displayName) {
                     setProfile(prev => ({ ...prev, name: user.displayName! }));
                   }
@@ -226,7 +215,6 @@ export default function App() {
                   profile={profile}
                   onProfileUpdate={(p) => {
                     setProfile(p);
-                    // Add profile update log notification
                     const newNotif: NotificationItem = {
                       id: `notif-${Date.now()}`,
                       title: "Profile Edited",
