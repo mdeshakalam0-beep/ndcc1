@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { signInWithRedirect } from 'firebase/auth';
 import { auth, googleProvider, hasConfig } from '../config/firebase';
 import { LogoSVG, LoginIllustrationSVG } from '../components/Illustrations';
 
@@ -12,32 +12,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Handle Firebase redirect result on component mount
-  useEffect(() => {
-    if (hasConfig && auth) {
-      setIsLoading(true);
-      getRedirectResult(auth)
-        .then((result) => {
-          if (result) {
-            const user = result.user;
-            onLoginSuccess({
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName
-            });
-            navigate('/register');
-          }
-        })
-        .catch((err: any) => {
-          console.error("Firebase redirect result error:", err);
-          setError(err.message || "Authentication redirect failed.");
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
-  }, [navigate, onLoginSuccess]);
 
   const handleSignIn = async () => {
     setIsLoading(true);
