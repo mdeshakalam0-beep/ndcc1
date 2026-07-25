@@ -100,16 +100,36 @@ export default function App() {
         }
         
         if (!isExcluded) {
+          // Normalize questions array from either 'questions' or 'questionsList'
+          let rawQuestions: any[] = [];
+          if (Array.isArray(data.questions)) {
+            rawQuestions = data.questions;
+          } else if (Array.isArray(data.questionsList)) {
+            rawQuestions = data.questionsList;
+          }
+          
+          const normalizedQuestions = rawQuestions.map((q: any) => ({
+            questionText: q.questionText || q.q || "Question text not provided",
+            options: Array.isArray(q.options) ? q.options : [],
+            correctOption: typeof q.correctOption === 'number' 
+              ? q.correctOption 
+              : (typeof q.answer === 'number' ? q.answer : 0)
+          }));
+          
+          const questionCount = normalizedQuestions.length > 0 
+            ? normalizedQuestions.length 
+            : (typeof data.questions === 'number' ? data.questions : 10);
+
           testsList.push({ 
             id: docSnap.id, 
             subject: data.subject || "General",
             subjectId: data.subjectId || "",
-            questions: data.questions || (data.questionsList ? data.questionsList.length : 10),
+            questions: questionCount,
             marks: data.marks || 100,
             timeLimit: data.timeLimit || 30,
             completed: data.completed || false,
             score: data.score,
-            questionsList: data.questionsList || []
+            questionsList: normalizedQuestions
           } as ObjectiveTest);
         } else {
           excludedCount++;

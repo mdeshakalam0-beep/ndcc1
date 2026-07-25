@@ -27,7 +27,7 @@ export interface ObjectiveTest {
   timeLimit: number; // in minutes
   completed: boolean;
   score?: number;
-  questionsList?: { q: string; options: string[]; answer: number }[];
+  questionsList?: { questionText: string; options: string[]; correctOption: number }[];
 }
 
 export interface NotificationItem {

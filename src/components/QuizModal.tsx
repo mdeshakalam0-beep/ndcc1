@@ -35,7 +35,7 @@ export default function QuizModal({ test, onClose, onComplete }: QuizModalProps)
     
     let correct = 0;
     questions.forEach((q, idx) => {
-      if (selectedAnswers[idx] === q.answer) {
+      if (selectedAnswers[idx] === q.correctOption) {
         correct++;
       }
     });
@@ -52,7 +52,7 @@ export default function QuizModal({ test, onClose, onComplete }: QuizModalProps)
   };
 
   const correctAnswersCount = questions.filter(
-    (q, idx) => selectedAnswers[idx] === q.answer
+    (q, idx) => selectedAnswers[idx] === q.correctOption
   ).length;
 
   return (
@@ -109,7 +109,7 @@ export default function QuizModal({ test, onClose, onComplete }: QuizModalProps)
               <div className="space-y-4">
                 <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Question {quizStep + 1}</span>
                 <h4 className="text-sm font-bold text-slate-800 leading-snug">
-                  {questions[quizStep].q}
+                  {questions[quizStep].questionText}
                 </h4>
               </div>
 
