@@ -2,34 +2,12 @@ import React from 'react';
 
 // NDCC Emblem Logo
 export const LogoSVG: React.FC<{ className?: string }> = ({ className = "w-12 h-12" }) => (
-  <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#2563EB" />
-        <stop offset="100%" stopColor="#06B6D4" />
-      </linearGradient>
-      <filter id="logoShadow" x="-10%" y="-10%" width="130%" height="130%">
-        <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#2563EB" floodOpacity="0.3" />
-      </filter>
-    </defs>
-    {/* Shield Outer */}
-    <path d="M50 5 L85 20 V50 C85 72 70 88 50 95 C30 88 15 72 15 50 V20 L50 5 Z" fill="url(#logoGrad)" filter="url(#logoShadow)" />
-    {/* Shield Inner Accent */}
-    <path d="M50 11 L79 23 V48 C79 67 66 81 50 87 C34 81 21 67 21 48 V23 L50 11 Z" fill="#FFFFFF" opacity="0.15" />
-    
-    {/* Graduation Cap */}
-    <path d="M50 25 L75 35 L50 45 L25 35 Z" fill="#FFFFFF" />
-    <path d="M35 39.5 V52 C35 57 40 60 50 60 C60 60 65 57 65 52 V39.5" fill="#FFFFFF" opacity="0.9" />
-    <path d="M70 36.5 V50 C70 51.5 71 52 71.5 50 V37" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" />
-    
-    {/* Compass Needle (Symbolizing "Direction") */}
-    <polygon points="50,42 54,50 50,58 46,50" fill="#06B6D4" />
-    <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" />
-    
-    {/* Little sparkles / Stars */}
-    <path d="M28 20 L29.5 23 L32.5 23.5 L30 25.5 L31 28.5 L28 27 L25 28.5 L26 25.5 L23.5 23.5 L26.5 23 Z" fill="#F59E0B" transform="scale(0.6) translate(20, -5)" />
-    <path d="M28 20 L29.5 23 L32.5 23.5 L30 25.5 L31 28.5 L28 27 L25 28.5 L26 25.5 L23.5 23.5 L26.5 23 Z" fill="#F59E0B" transform="scale(0.6) translate(120, -5)" />
-  </svg>
+  <img 
+    src="/icon-192.png" 
+    alt="NDCC Logo" 
+    className={`${className} object-contain`} 
+    style={{ contentVisibility: 'auto' }}
+  />
 );
 
 // Welcome Screen Illustration (Students Learning)
