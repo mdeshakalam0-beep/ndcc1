@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider, hasConfig } from '../config/firebase';
 import { LogoSVG, LoginIllustrationSVG } from '../components/Illustrations';
 
@@ -13,26 +13,43 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Handle Firebase redirect result on component mount
+  useEffect(() => {
+    if (hasConfig && auth) {
+      setIsLoading(true);
+      getRedirectResult(auth)
+        .then((result) => {
+          if (result) {
+            const user = result.user;
+            onLoginSuccess({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName
+            });
+            navigate('/register');
+          }
+        })
+        .catch((err: any) => {
+          console.error("Firebase redirect result error:", err);
+          setError(err.message || "Authentication redirect failed.");
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [navigate, onLoginSuccess]);
+
   const handleSignIn = async () => {
     setIsLoading(true);
     setError(null);
 
-    // If Firebase is configured, perform actual Auth
     if (hasConfig && auth && googleProvider) {
       try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const user = result.user;
-        onLoginSuccess({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName
-        });
-        // Navigate to registration form
-        navigate('/register');
+        // Use redirect instead of popup to prevent COOP browser policy warnings
+        await signInWithRedirect(auth, googleProvider);
       } catch (err: any) {
-        console.error("Firebase Sign In error:", err);
-        setError(err.message || "Failed to sign in with Google.");
-      } finally {
+        console.error("Firebase Redirect Sign In error:", err);
+        setError(err.message || "Failed to trigger Google Authentication.");
         setIsLoading(false);
       }
     } else {
