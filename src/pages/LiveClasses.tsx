@@ -65,15 +65,26 @@ export default function LiveClasses({ liveClasses, profile }: LiveClassesProps) 
     }
   };
 
-  const embedUrl = activeStream ? getYoutubeEmbedUrl(activeStream.youtubeEmbedUrl || activeStream.youtubeUrl) : "";
+  const getStreamUrlField = (stream: LiveClassItem | null): { field: string; url: string } => {
+    if (!stream) return { field: "none", url: "" };
+    const s = stream as any;
+    if (s.youtubeLiveUrl) return { field: "youtubeLiveUrl", url: s.youtubeLiveUrl };
+    if (s.youtubeEmbedUrl) return { field: "youtubeEmbedUrl", url: s.youtubeEmbedUrl };
+    if (s.youtubeUrl) return { field: "youtubeUrl", url: s.youtubeUrl };
+    if (s.videoUrl) return { field: "videoUrl", url: s.videoUrl };
+    return { field: "none", url: "" };
+  };
+
+  const { field: selectedField, url: rawUrl } = getStreamUrlField(activeStream);
+  const embedUrl = rawUrl ? getYoutubeEmbedUrl(rawUrl) : "";
   const isLive = activeStream?.liveStatus === 'live';
 
   if (activeStream) {
-    console.log("🎥 [YouTube Logger - Live]");
-    console.log("- Original Firestore URL:", activeStream.youtubeEmbedUrl || activeStream.youtubeUrl);
-    console.log("- Extracted Video ID:", getYoutubeVideoId(activeStream.youtubeUrl));
-    console.log("- Generated embed URL:", embedUrl);
-    console.log("- Final iframe src:", embedUrl);
+    console.log("🎥 [YouTube Logger - Live Stream Details]");
+    console.log("- Entire Firestore document:", activeStream);
+    console.log("- Selected URL field:", selectedField);
+    console.log("- Extracted Video ID:", rawUrl ? getYoutubeVideoId(rawUrl) : "none");
+    console.log("- Final Embed URL:", embedUrl);
   }
 
   return (
@@ -217,7 +228,8 @@ export default function LiveClasses({ liveClasses, profile }: LiveClassesProps) 
                 {liveClasses
                   .filter(v => v.id !== activeStream.id)
                   .map((item) => {
-                    const videoId = getYoutubeVideoId(item.youtubeUrl);
+                    const { url: itemUrl } = getStreamUrlField(item);
+                    const videoId = getYoutubeVideoId(itemUrl);
                     const streamIsLive = item.liveStatus === 'live';
                     
                     return (
