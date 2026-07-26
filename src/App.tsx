@@ -687,7 +687,7 @@ export default function App() {
             element={
               currentUser ? (
                 hasRegistered ? (
-                  <LiveClasses liveClasses={liveClasses} />
+                  <LiveClasses liveClasses={liveClasses} profile={profile} />
                 ) : (
                   <Navigate to="/register" replace />
                 )
@@ -703,7 +703,7 @@ export default function App() {
             element={
               currentUser ? (
                 hasRegistered ? (
-                  <RecordedClasses recordedClasses={recordedClasses} />
+                  <RecordedClasses recordedClasses={recordedClasses} profile={profile} />
                 ) : (
                   <Navigate to="/register" replace />
                 )
