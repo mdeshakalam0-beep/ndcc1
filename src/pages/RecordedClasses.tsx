@@ -238,6 +238,14 @@ export default function RecordedClasses({ recordedClasses }: RecordedClassesProp
                       allowFullScreen
                       onLoad={() => setIframeLoading(false)}
                     ></iframe>
+
+                    {/* Branding overlay mask to cover YouTube watermark/logo */}
+                    {!iframeLoading && (
+                      <div className="absolute bottom-12 right-3 z-10 bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-[6px] text-[8px] font-black text-blue-400 select-none pointer-events-none border border-white/10 flex items-center space-x-1 animate-fade-in shadow-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span>NDCC ACADEMY</span>
+                      </div>
+                    )}
                     
                     {/* Dark loading state skeleton */}
                     {iframeLoading && (
