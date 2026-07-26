@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db, hasConfig } from './config/firebase';
 
 import type { StudentProfile, Subject, ObjectiveTest, NotificationItem } from './types';
@@ -20,6 +20,10 @@ import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Notifications from './pages/Notifications';
 import EditProfile from './pages/EditProfile';
+import Homework from './pages/Homework';
+import Assignments from './pages/Assignments';
+import LiveClasses from './pages/LiveClasses';
+import RecordedClasses from './pages/RecordedClasses';
 
 const initialEmptyProfile: StudentProfile = {
   name: "",
@@ -40,7 +44,6 @@ export default function App() {
   } | null>(null);
 
   const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
   const [hasRegistered, setHasRegistered] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -60,244 +63,45 @@ export default function App() {
   // MCQ Test running modal state
   const [activeQuiz, setActiveQuiz] = useState<ObjectiveTest | null>(null);
 
-  // Helper to fetch live student portal datasets from Firestore
   const getClassIdFromName = (name: string): string => {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   };
 
-  // Helper to fetch live student portal datasets from Firestore
-  const fetchFirestoreData = async (studentProfile?: StudentProfile) => {
-    if (!db) return;
-    setDataLoading(true);
-    setDbError(null);
-
-    const activeProfile = studentProfile || profile;
-    const studentClassId = activeProfile?.classId || (activeProfile?.className ? getClassIdFromName(activeProfile.className) : "");
-    console.log(`🎯 [Firestore Read] Resolved Class ID for content filtering: '${studentClassId}'`);
-
-    // 1. Fetch Class Subjects
-    try {
-      const subsSnap = await getDocs(collection(db, "subjects"));
-      const subsList: Subject[] = [];
-      subsSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        // Filter: document.classId == studentClassId || document.classId == "all" || !document.classId
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          subsList.push({ id: docSnap.id, ...data } as Subject);
-        }
-      });
-      console.log(`📚 [Firestore Read] Subjects fetched: ${subsList.length} items matched class '${studentClassId}'.`);
-      setSubjects(subsList);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'subjects' read failed (Verify security rules or collection existence):", err);
-    }
-
-    // 2. Fetch Class Mock Tests
-    try {
-      console.log("🔍 [Firestore Read] Fetching collection: 'objectiveTests'");
-      const testsSnap = await getDocs(collection(db, "objectiveTests"));
-      const testsList: ObjectiveTest[] = [];
-      let totalDocs = 0;
-      let excludedCount = 0;
-      
-      testsSnap.forEach(docSnap => {
-        totalDocs++;
-        const data = docSnap.data();
-        
-        // Audit filtering checks
-        let isExcluded = false;
-        let excludeReason = "";
-        
-        // Class-based filtering rule
-        if (data.classId && data.classId !== studentClassId && data.classId !== "all") {
-          isExcluded = true;
-          excludeReason = `classId mismatch (test classId: ${data.classId}, student classId: ${studentClassId})`;
-        }
-        // Filter out unpublished tests
-        else if (data.published === false) {
-          isExcluded = true;
-          excludeReason = "test.published is false";
-        }
-        // Filter out inactive tests
-        else if (data.active === false || data.status === "inactive") {
-          isExcluded = true;
-          excludeReason = "test.active is false or status is inactive";
-        }
-        
-        if (!isExcluded) {
-          // Normalize questions array from either 'questions' or 'questionsList'
-          let rawQuestions: any[] = [];
-          if (Array.isArray(data.questions)) {
-            rawQuestions = data.questions;
-          } else if (Array.isArray(data.questionsList)) {
-            rawQuestions = data.questionsList;
-          }
-          
-          const normalizedQuestions = rawQuestions.map((q: any) => ({
-            questionText: q.questionText || q.q || "Question text not provided",
-            options: Array.isArray(q.options) ? q.options : [],
-            correctOption: typeof q.correctOption === 'number' 
-              ? q.correctOption 
-              : (typeof q.answer === 'number' ? q.answer : 0)
-          }));
-          
-          const questionCount = normalizedQuestions.length > 0 
-            ? normalizedQuestions.length 
-            : (typeof data.questions === 'number' ? data.questions : 10);
-
-          const durationValue = typeof data.duration === 'number' 
-            ? data.duration 
-            : (typeof data.timeLimit === 'number' 
-              ? data.timeLimit 
-              : (typeof data.time === 'number' 
-                ? data.time 
-                : 30));
-          
-          console.log(`⏱️ [Firestore Read] Test '${data.subject || "General"}' (ID: ${docSnap.id}): Duration received = ${data.duration ?? data.timeLimit ?? data.time ?? "undefined"} mins. Duration displayed in UI = ${durationValue} mins.`);
-
-          testsList.push({ 
-            id: docSnap.id, 
-            subject: data.subject || "General",
-            subjectId: data.subjectId || "",
-            classId: data.classId || "",
-            questions: questionCount,
-            marks: data.marks || 100,
-            timeLimit: durationValue,
-            completed: data.completed || false,
-            score: data.score,
-            questionsList: normalizedQuestions
-          } as ObjectiveTest);
-        } else {
-          excludedCount++;
-          console.log(`🚫 [Firestore Read] Excluded test document ID '${docSnap.id}'. Reason: ${excludeReason}`);
-        }
-      });
-      
-      console.log(`📊 [Firestore Read] Received ${totalDocs} documents from 'objectiveTests'. Filtered Result Count: ${testsList.length}. Excluded: ${excludedCount}.`);
-      setTests(testsList);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'objectiveTests' read failed (Verify security rules or collection existence):", err);
-    }
-
-    // 3. Fetch Bulletin Announcements (Sorted by timestamp)
-    try {
-      const notifsList: NotificationItem[] = [];
-      const notifQuery = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
-      let notifsSnap;
-      try {
-        notifsSnap = await getDocs(notifQuery);
-      } catch (sortErr) {
-        // Fallback if timestamp index is not set up on Firestore
-        notifsSnap = await getDocs(collection(db, "notifications"));
-      }
-      notifsSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          notifsList.push({ id: docSnap.id, ...data } as NotificationItem);
-        }
-      });
-      console.log(`📢 [Firestore Read] Notifications matched class: ${notifsList.length} items.`);
-      setNotifications(notifsList);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'notifications' read failed (Verify security rules or collection existence):", err);
-    }
-
-    // 4. Fetch Hero Slider Announcements
-    try {
-      const bannersSnap = await getDocs(collection(db, "banners"));
-      const bannersList: any[] = [];
-      bannersSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          bannersList.push({ id: docSnap.id, ...data });
-        }
-      });
-      console.log(`🖼️ [Firestore Read] Banners matched class: ${bannersList.length} items.`);
-      setBanners(bannersList);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'banners' read failed (Verify security rules or collection existence):", err);
-    }
-
-    // 5. Fetch Homework
-    try {
-      const snap = await getDocs(collection(db, "homework"));
-      const list: any[] = [];
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          list.push({ id: docSnap.id, ...data });
-        }
-      });
-      console.log(`📝 [Firestore Read] Homework matched class: ${list.length} items.`);
-      setHomework(list);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'homework' read failed:", err);
-    }
-
-    // 6. Fetch Assignments
-    try {
-      const snap = await getDocs(collection(db, "assignments"));
-      const list: any[] = [];
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          list.push({ id: docSnap.id, ...data });
-        }
-      });
-      console.log(`📋 [Firestore Read] Assignments matched class: ${list.length} items.`);
-      setAssignments(list);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'assignments' read failed:", err);
-    }
-
-    // 7. Fetch Live Classes
-    try {
-      const snap = await getDocs(collection(db, "liveClasses"));
-      const list: any[] = [];
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          list.push({ id: docSnap.id, ...data });
-        }
-      });
-      console.log(`📹 [Firestore Read] Live classes matched class: ${list.length} items.`);
-      setLiveClasses(list);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'liveClasses' read failed:", err);
-    }
-
-    // 8. Fetch Recorded Classes
-    try {
-      const snap = await getDocs(collection(db, "recordedClasses"));
-      const list: any[] = [];
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.classId || data.classId === studentClassId || data.classId === "all") {
-          list.push({ id: docSnap.id, ...data });
-        }
-      });
-      console.log(`📼 [Firestore Read] Recorded classes matched class: ${list.length} items.`);
-      setRecordedClasses(list);
-    } catch (err) {
-      console.warn("⚠️ Firestore 'recordedClasses' read failed:", err);
-    }
-
-    setDataLoading(false);
-  };
-
-  // Listen to Firebase Auth state change to persist login state across reloads/redirects
+  // Listen to Firebase Auth state change and student profile changes in real-time
   useEffect(() => {
-    if (!hasConfig || !auth) {
+    if (!hasConfig || !auth || !db) {
       setAuthLoading(false);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let profileUnsub: () => void = () => {};
+    let subjectsUnsub: () => void = () => {};
+    let testsUnsub: () => void = () => {};
+    let notificationsUnsub: () => void = () => {};
+    let bannersUnsub: () => void = () => {};
+    let homeworkUnsub: () => void = () => {};
+    let assignmentsUnsub: () => void = () => {};
+    let liveClassesUnsub: () => void = () => {};
+    let recordedClassesUnsub: () => void = () => {};
+
+    const cleanupListeners = () => {
+      profileUnsub();
+      subjectsUnsub();
+      testsUnsub();
+      notificationsUnsub();
+      bannersUnsub();
+      homeworkUnsub();
+      assignmentsUnsub();
+      liveClassesUnsub();
+      recordedClassesUnsub();
+    };
+
+    const authUnsub = onAuthStateChanged(auth, async (user) => {
       console.log("🔒 [Auth Observer] State changed. User logged in:", !!user);
-      console.log("👤 [Auth Observer] auth.currentUser:", auth && auth.currentUser ? auth.currentUser.email : "null");
+      cleanupListeners(); // Cleanup any existing listeners from previous session
       setDbError(null);
+
       if (user) {
-        console.log("🆔 [Auth Observer] Current UID:", user.uid);
         const loggedInUser = {
           uid: user.uid,
           email: user.email,
@@ -305,55 +109,200 @@ export default function App() {
         };
         setCurrentUser(loggedInUser);
 
-        try {
-          if (db) {
-            const docRef = doc(db, "students", user.uid);
-            console.log("🔍 [Firestore] Reading student doc under path: students/" + user.uid);
-            const docSnap = await getDoc(docRef);
+        // 1. Real-time Student Profile listener
+        const profileRef = doc(db, "students", user.uid);
+        profileUnsub = onSnapshot(profileRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            const docData = docSnap.data();
             
-            if (docSnap.exists()) {
-              const docData = docSnap.data();
-              console.log("📄 [Firestore] Student doc read result successfully:", docData);
-              setProfile(docData as StudentProfile);
+            // Map student profile values with fallback fields
+            const resolvedProfile: StudentProfile = {
+              ...docData,
+              studentId: user.uid,
+              studentName: docData.name || user.displayName || "",
+              class: docData.className || "",
+              classId: docData.classId || (docData.className ? getClassIdFromName(docData.className) : ""),
+              name: docData.name || user.displayName || "",
+              className: docData.className || ""
+            } as StudentProfile;
+            
+            setProfile(resolvedProfile);
+            console.log("📄 [Firestore Profile Listener] Student profile updated:", resolvedProfile);
+
+            if (docData.isRegistered === true) {
+              setHasRegistered(true);
               
-              if (docData.isRegistered === true) {
-                console.log("📍 [Route Decision] Student is registered. Redirecting to Dashboard.");
-                setHasRegistered(true);
-                await fetchFirestoreData(docData as StudentProfile);
-              } else {
-                console.log("📍 [Route Decision] Student has document but is not registered. Redirecting to Registration Form.");
-                setHasRegistered(false);
-              }
+              // 2. Setup real-time listeners for all class-filterable content
+              const studentClassId = resolvedProfile.classId || "";
+
+              // Subjects Listener
+              subjectsUnsub = onSnapshot(collection(db, "subjects"), (snap) => {
+                const list: Subject[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data } as Subject);
+                  }
+                });
+                setSubjects(list);
+              }, (err) => console.warn("⚠️ subjects listener failed:", err));
+
+              // Objective Tests Listener
+              testsUnsub = onSnapshot(collection(db, "objectiveTests"), (snap) => {
+                const list: ObjectiveTest[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  
+                  // Filter out unpublished or inactive tests, and mismatching classes
+                  const classIdMatch = !data.classId || data.classId === studentClassId || data.classId === "all";
+                  const isPublished = data.published !== false;
+                  const isActive = data.active !== false && data.status !== "inactive";
+
+                  if (classIdMatch && isPublished && isActive) {
+                    let rawQuestions: any[] = [];
+                    if (Array.isArray(data.questions)) rawQuestions = data.questions;
+                    else if (Array.isArray(data.questionsList)) rawQuestions = data.questionsList;
+
+                    const normalizedQuestions = rawQuestions.map((q: any) => ({
+                      questionText: q.questionText || q.q || "Question text not provided",
+                      options: Array.isArray(q.options) ? q.options : [],
+                      correctOption: typeof q.correctOption === 'number' 
+                        ? q.correctOption 
+                        : (typeof q.answer === 'number' ? q.answer : 0)
+                    }));
+
+                    const questionCount = normalizedQuestions.length > 0 ? normalizedQuestions.length : (typeof data.questions === 'number' ? data.questions : 10);
+                    const durationValue = typeof data.duration === 'number' ? data.duration : (typeof data.timeLimit === 'number' ? data.timeLimit : (typeof data.time === 'number' ? data.time : 30));
+
+                    list.push({
+                      id: dSnap.id,
+                      subject: data.subject || "General",
+                      subjectId: data.subjectId || "",
+                      classId: data.classId || "",
+                      questions: questionCount,
+                      marks: data.marks || 100,
+                      passingMarks: data.passingMarks,
+                      difficulty: data.difficulty,
+                      timeLimit: durationValue,
+                      completed: data.completed || false,
+                      score: data.score,
+                      questionsList: normalizedQuestions
+                    } as ObjectiveTest);
+                  }
+                });
+                setTests(list);
+              }, (err) => console.warn("⚠️ objectiveTests listener failed:", err));
+
+              // Notifications Listener
+              notificationsUnsub = onSnapshot(collection(db, "notifications"), (snap) => {
+                const list: NotificationItem[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data } as NotificationItem);
+                  }
+                });
+                // Sort client-side by timestamp (newest first)
+                list.sort((a: any, b: any) => {
+                  const tA = a.timestamp ? (a.timestamp.seconds || a.timestamp) : 0;
+                  const tB = b.timestamp ? (b.timestamp.seconds || b.timestamp) : 0;
+                  return tB - tA;
+                });
+                setNotifications(list);
+              }, (err) => console.warn("⚠️ notifications listener failed:", err));
+
+              // Banners Listener
+              bannersUnsub = onSnapshot(collection(db, "banners"), (snap) => {
+                const list: any[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data });
+                  }
+                });
+                setBanners(list);
+              }, (err) => console.warn("⚠️ banners listener failed:", err));
+
+              // Homework Listener
+              homeworkUnsub = onSnapshot(collection(db, "homework"), (snap) => {
+                const list: any[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data });
+                  }
+                });
+                setHomework(list);
+              }, (err) => console.warn("⚠️ homework listener failed:", err));
+
+              // Assignments Listener
+              assignmentsUnsub = onSnapshot(collection(db, "assignments"), (snap) => {
+                const list: any[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data });
+                  }
+                });
+                setAssignments(list);
+              }, (err) => console.warn("⚠️ assignments listener failed:", err));
+
+              // Live Classes Listener
+              liveClassesUnsub = onSnapshot(collection(db, "liveClasses"), (snap) => {
+                const list: any[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data });
+                  }
+                });
+                setLiveClasses(list);
+              }, (err) => console.warn("⚠️ liveClasses listener failed:", err));
+
+              // Recorded Classes Listener
+              recordedClassesUnsub = onSnapshot(collection(db, "recordedClasses"), (snap) => {
+                const list: any[] = [];
+                snap.forEach(dSnap => {
+                  const data = dSnap.data();
+                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                    list.push({ id: dSnap.id, ...data });
+                  }
+                });
+                setRecordedClasses(list);
+              }, (err) => console.warn("⚠️ recordedClasses listener failed:", err));
+
             } else {
-              console.log("📄 [Firestore] Student document does not exist. Auto-creating base profile document.");
-              const baseProfile = {
-                name: user.displayName || "",
-                fatherName: "",
-                className: "Class 12 - Science",
-                dob: "",
-                gender: "Male",
-                village: "",
-                profilePic: user.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200",
-                isRegistered: false
-              };
-              
-              try {
-                await setDoc(doc(db, "students", user.uid), baseProfile);
-                console.log("✍️ [Firestore] Auto-write student doc result: SUCCESS");
-              } catch (writeErr) {
-                console.error("❌ [Firestore] Auto-write student doc result: FAILED", writeErr);
-              }
-              
-              setProfile(baseProfile as StudentProfile);
               setHasRegistered(false);
-              console.log("📍 [Route Decision] First-time login. Redirecting to Registration Form.");
             }
+          } else {
+            console.log("📄 [Firestore Profile Listener] Document does not exist. Auto-creating base profile document.");
+            const baseProfile = {
+              name: user.displayName || "",
+              studentName: user.displayName || "",
+              className: "Class 12 - Science",
+              class: "Class 12 - Science",
+              classId: "class-12-science",
+              dob: "",
+              gender: "Male",
+              village: "",
+              profilePic: "",
+              isRegistered: false
+            };
+            try {
+              await setDoc(doc(db, "students", user.uid), baseProfile);
+              console.log("✍️ [Firestore] Auto-write student doc result: SUCCESS");
+            } catch (writeErr) {
+              console.error("❌ [Firestore] Auto-write student doc result: FAILED", writeErr);
+            }
+            setProfile(baseProfile as StudentProfile);
+            setHasRegistered(false);
           }
-        } catch (err: any) {
-          console.error("❌ [Firestore] Doc read failed with exception:", err);
-          setDbError("Database sync warning. Check student permissions.");
-          setHasRegistered(false);
-        }
+          setAuthLoading(false);
+        }, (err) => {
+          console.error("❌ [Firestore Profile Listener] Failed:", err);
+          setAuthLoading(false);
+        });
+
       } else {
         console.log("🆔 [Auth Observer] No active session. Route decision: Redirect to Login");
         setCurrentUser(null);
@@ -363,11 +312,18 @@ export default function App() {
         setTests([]);
         setNotifications([]);
         setBanners([]);
+        setHomework([]);
+        setAssignments([]);
+        setLiveClasses([]);
+        setRecordedClasses([]);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsub();
+      cleanupListeners();
+    };
   }, []);
 
   // Secure Firebase Sign Out handling
@@ -463,12 +419,7 @@ export default function App() {
             <span>{dbError}</span>
           </div>
         )}
-        
-        {dataLoading && (
-          <div className="h-1.5 w-full bg-blue-100 overflow-hidden shrink-0 select-none z-50">
-            <div className="h-full bg-blue-600 animate-pulse w-1/3 rounded-full"></div>
-          </div>
-        )}
+
 
         <Routes>
           {/* Public Views */}
@@ -509,7 +460,6 @@ export default function App() {
                     onRegisterComplete={async (p) => {
                       setProfile(p);
                       setHasRegistered(true);
-                      await fetchFirestoreData();
                     }}
                   />
                 )
@@ -648,10 +598,72 @@ export default function App() {
                     profile={profile}
                     onProfileUpdate={async (p) => {
                       setProfile(p);
-                      // Fetch fresh updates
-                      await fetchFirestoreData();
                     }}
                   />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+
+          {/* Homework */}
+          <Route 
+            path="/homework" 
+            element={
+              currentUser ? (
+                hasRegistered ? (
+                  <Homework homework={homework} />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+
+          {/* Assignments */}
+          <Route 
+            path="/assignments" 
+            element={
+              currentUser ? (
+                hasRegistered ? (
+                  <Assignments assignments={assignments} />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+
+          {/* Live Classes */}
+          <Route 
+            path="/live-classes" 
+            element={
+              currentUser ? (
+                hasRegistered ? (
+                  <LiveClasses liveClasses={liveClasses} />
+                ) : (
+                  <Navigate to="/register" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+
+          {/* Recorded Classes */}
+          <Route 
+            path="/recorded-classes" 
+            element={
+              currentUser ? (
+                hasRegistered ? (
+                  <RecordedClasses recordedClasses={recordedClasses} />
                 ) : (
                   <Navigate to="/register" replace />
                 )

@@ -148,8 +148,12 @@ export default function Dashboard({
               {[
                 { name: "Subjects", icon: "menu_book", path: "/dashboard/subjects", color: "bg-blue-500/10 text-blue-600" },
                 { name: "MCQ Tests", icon: "quiz", path: "/dashboard/tests", color: "bg-emerald-500/10 text-emerald-600" },
-                { name: "Progress", icon: "analytics", path: "/dashboard/profile", color: "bg-cyan-500/10 text-cyan-600" },
-                { name: "Profile", icon: "person", path: "/dashboard/profile", color: "bg-purple-500/10 text-purple-600" }
+                { name: "Homework", icon: "edit_document", path: "/homework", color: "bg-orange-500/10 text-orange-600" },
+                { name: "Assignments", icon: "inventory", path: "/assignments", color: "bg-purple-500/10 text-purple-650" },
+                { name: "Live Class", icon: "cast_connected", path: "/live-classes", color: "bg-red-500/10 text-red-650" },
+                { name: "Recorded", icon: "video_library", path: "/recorded-classes", color: "bg-cyan-500/10 text-cyan-600" },
+                { name: "Alerts", icon: "campaign", path: "/notifications", color: "bg-pink-500/10 text-pink-600" },
+                { name: "Profile", icon: "person", path: "/dashboard/profile", color: "bg-indigo-500/10 text-indigo-600" }
               ].map((act, idx) => (
                 <button
                   key={idx}
@@ -159,7 +163,7 @@ export default function Dashboard({
                   <div className={`w-11 h-11 rounded-[16px] flex items-center justify-center ${act.color} group-hover:scale-105 transition`}>
                     <span className="material-symbols-rounded text-xl">{act.icon}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-800 leading-tight">{act.name}</span>
+                  <span className="text-[10px] font-bold text-slate-805 leading-tight">{act.name}</span>
                 </button>
               ))}
             </div>
@@ -502,16 +506,29 @@ export default function Dashboard({
                   <div className="flex justify-between items-start select-none">
                     <div className="space-y-0.5">
                       <h4 className="text-sm font-bold text-slate-800">{test.subject} Test</h4>
-                      <div className="flex items-center space-x-2 pt-1 text-[10px] text-slate-450 font-medium">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1.5 text-[10px] text-slate-450 font-medium">
                         <span className="flex items-center">
                           <span className="material-symbols-rounded text-xs mr-0.5 text-slate-400">help</span>
                           {test.questions} MCQs
                         </span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-205"></span>
+                        <span className="w-1 h-1 rounded-full bg-slate-200"></span>
                         <span className="flex items-center">
                           <span className="material-symbols-rounded text-xs mr-0.5 text-slate-400">timer</span>
                           {test.timeLimit} mins
                         </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                        <span className="flex items-center">
+                          <span className="material-symbols-rounded text-xs mr-0.5 text-slate-400">grade</span>
+                          Pass: {test.passingMarks || Math.round(test.marks * 0.4)} / {test.marks}
+                        </span>
+                        {test.difficulty && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                            <span className="flex items-center bg-slate-100 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-650 uppercase">
+                              {test.difficulty}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     
