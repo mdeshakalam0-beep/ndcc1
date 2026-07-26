@@ -170,6 +170,14 @@ export default function RecordedClasses({ recordedClasses, profile }: RecordedCl
   const activeProgress = activeVideo ? getLectureProgress(activeVideo.id) : null;
   const isActiveCompleted = activeProgress && activeProgress.percent > 90;
 
+  if (activeVideo) {
+    console.log("🎥 [YouTube Logger - Recorded]");
+    console.log("- Original Firestore URL:", activeVideo.youtubeEmbedUrl || activeVideo.youtubeUrl);
+    console.log("- Extracted Video ID:", getYoutubeVideoId(activeVideo.youtubeUrl));
+    console.log("- Generated embed URL:", activeEmbedUrl);
+    console.log("- Final iframe src:", activeEmbedUrl);
+  }
+
   // Extract unique subjects for chips filtering
   const subjectsList = ["All", ...Array.from(new Set(recordedClasses.map(v => v.subject).filter(Boolean)))];
 

@@ -68,6 +68,14 @@ export default function LiveClasses({ liveClasses, profile }: LiveClassesProps) 
   const embedUrl = activeStream ? getYoutubeEmbedUrl(activeStream.youtubeEmbedUrl || activeStream.youtubeUrl) : "";
   const isLive = activeStream?.liveStatus === 'live';
 
+  if (activeStream) {
+    console.log("🎥 [YouTube Logger - Live]");
+    console.log("- Original Firestore URL:", activeStream.youtubeEmbedUrl || activeStream.youtubeUrl);
+    console.log("- Extracted Video ID:", getYoutubeVideoId(activeStream.youtubeUrl));
+    console.log("- Generated embed URL:", embedUrl);
+    console.log("- Final iframe src:", embedUrl);
+  }
+
   return (
     <div className="absolute inset-0 flex flex-col bg-slate-50 text-slate-800 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] z-20 overflow-hidden select-none">
       
