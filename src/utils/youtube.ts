@@ -14,6 +14,17 @@ export const getYoutubeEmbedUrl = (url?: string): string => {
         if (key) queryParams[key] = val || "";
       });
     }
+  } else if (trimmed.includes("/live/")) {
+    const parts = trimmed.split("/live/");
+    const idAndParams = parts[parts.length - 1].split("?");
+    const id = idAndParams[0];
+    baseUrl = `https://www.youtube.com/embed/${id}`;
+    if (idAndParams[1]) {
+      idAndParams[1].split("&").forEach(pair => {
+        const [key, val] = pair.split("=");
+        if (key) queryParams[key] = val || "";
+      });
+    }
   } else if (trimmed.includes("youtu.be/")) {
     const parts = trimmed.split("youtu.be/");
     const idAndParams = parts[parts.length - 1].split("?");
@@ -40,6 +51,9 @@ export const getYoutubeEmbedUrl = (url?: string): string => {
       id = trimmed.split("v=")[1].split("&")[0];
     }
     baseUrl = `https://www.youtube.com/embed/${id}`;
+  } else if (!trimmed.includes("/") && !trimmed.includes(".")) {
+    // raw 11-char ID
+    baseUrl = `https://www.youtube.com/embed/${trimmed}`;
   } else {
     const parts = trimmed.split("?");
     baseUrl = parts[0];

@@ -31,6 +31,12 @@ export default function RecordedClasses({ recordedClasses, profile }: RecordedCl
     if (trimmed.includes("embed/")) {
       return trimmed.split("embed/")[1].split("?")[0].trim();
     }
+    if (trimmed.includes("/live/")) {
+      return trimmed.split("/live/")[1].split("?")[0].trim();
+    }
+    if (!trimmed.includes("/") && !trimmed.includes(".")) {
+      return trimmed;
+    }
     return "";
   };
 
