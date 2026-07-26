@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db, hasConfig } from './config/firebase';
 
-import type { StudentProfile, Subject, ObjectiveTest, NotificationItem } from './types';
+import type { StudentProfile, Subject, ObjectiveTest, NotificationItem, ClassItem } from './types';
 
 // Layout & Modals
 import Layout from './components/Layout';
@@ -59,6 +59,8 @@ export default function App() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [recordedClasses, setRecordedClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
   
   // MCQ Test running modal state
   const [activeQuiz, setActiveQuiz] = useState<ObjectiveTest | null>(null);
@@ -83,6 +85,39 @@ export default function App() {
     let assignmentsUnsub: () => void = () => {};
     let liveClassesUnsub: () => void = () => {};
     let recordedClassesUnsub: () => void = () => {};
+
+    // 1. Real-time Class List listener (available for registration & edit profile)
+    console.log("📡 [Firestore Listener] Attaching /classes listener...");
+    const classesUnsub = onSnapshot(collection(db, "classes"), (snap) => {
+      const list: ClassItem[] = [];
+      snap.forEach(dSnap => {
+        const data = dSnap.data();
+        if (data.isActive !== false) { // isActive == true OR not set (backward compatibility)
+          list.push({
+            id: dSnap.id,
+            className: data.className || data.name || "",
+            classId: data.classId || dSnap.id,
+            displayOrder: data.displayOrder,
+            isActive: data.isActive
+          } as ClassItem);
+        }
+      });
+      
+      // Sort: displayOrder (ascending), then className (ascending)
+      list.sort((a, b) => {
+        const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 9999;
+        const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 9999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.className.localeCompare(b.className);
+      });
+      
+      console.log(`🏫 [Firestore Classes Listener] Loaded ${list.length} active classes from /classes:`, list);
+      setClasses(list);
+      setClassesLoading(false);
+    }, (err) => {
+      console.error("❌ [Firestore Classes Listener] Failed to load classes from /classes:", err);
+      setClassesLoading(false);
+    });
 
     const cleanupListeners = () => {
       profileUnsub();
@@ -323,6 +358,7 @@ export default function App() {
     return () => {
       authUnsub();
       cleanupListeners();
+      classesUnsub();
     };
   }, []);
 
@@ -457,6 +493,8 @@ export default function App() {
                   <Register 
                     uid={currentUser.uid}
                     profile={profile}
+                    classes={classes}
+                    classesLoading={classesLoading}
                     onRegisterComplete={async (p) => {
                       setProfile(p);
                       setHasRegistered(true);
@@ -596,6 +634,8 @@ export default function App() {
                   <EditProfile 
                     uid={currentUser.uid}
                     profile={profile}
+                    classes={classes}
+                    classesLoading={classesLoading}
                     onProfileUpdate={async (p) => {
                       setProfile(p);
                     }}

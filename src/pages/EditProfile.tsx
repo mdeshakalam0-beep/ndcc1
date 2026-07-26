@@ -1,24 +1,29 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, hasConfig } from '../config/firebase';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
-import type { StudentProfile } from '../types';
+import type { StudentProfile, ClassItem } from '../types';
 
 interface EditProfileProps {
   uid: string;
   profile: StudentProfile;
+  classes: ClassItem[];
+  classesLoading: boolean;
   onProfileUpdate: (updatedProfile: StudentProfile) => void;
 }
 
-export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfileProps) {
+export default function EditProfile({ uid, profile, classes, classesLoading, onProfileUpdate }: EditProfileProps) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formName, setFormName] = useState(profile.name);
   const [formFatherName, setFormFatherName] = useState(profile.fatherName);
-  const [formClass, setFormClass] = useState(profile.className);
+  
+  const [formClassId, setFormClassId] = useState(profile.classId || "");
+  const [formClassName, setFormClassName] = useState(profile.className || "");
+
   const [formDob, setFormDob] = useState(profile.dob);
   const [formGender, setFormGender] = useState(profile.gender);
   const [formVillage, setFormVillage] = useState(profile.village);
@@ -35,11 +40,35 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
     "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200&h=200"
   ];
 
+  // Auto-initialize formClassId and formClassName when classes list is loaded
+  useEffect(() => {
+    if (classes.length > 0) {
+      const hasSaved = classes.some(c => c.classId === formClassId);
+      if (!formClassId || !hasSaved) {
+        if (!formClassId) {
+          setFormClassId(classes[0].classId);
+          setFormClassName(classes[0].className);
+        }
+      }
+    }
+  }, [classes, formClassId]);
+
+  // Local list of options to display, appending the saved class if it is inactive/missing from list
+  const selectOptions = [...classes];
+  const isSavedClassInactive = formClassId && !classes.some(c => c.classId === formClassId);
+  if (isSavedClassInactive) {
+    selectOptions.push({
+      id: "inactive-saved",
+      classId: formClassId,
+      className: formClassName || "Saved Inactive Class",
+      isActive: false
+    });
+  }
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setCustomFile(file);
-      // Create local URL for immediate preview
       const previewUrl = URL.createObjectURL(file);
       setSelectedAvatar(previewUrl);
     }
@@ -57,15 +86,11 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
         avatarUrl = await uploadImageToCloudinary(customFile);
       }
 
-      const getClassIdFromName = (name: string): string => {
-        return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      };
-
       const updatedProfile: StudentProfile = {
         name: formName,
         fatherName: formFatherName,
-        className: formClass,
-        classId: getClassIdFromName(formClass),
+        className: formClassName,
+        classId: formClassId,
         dob: formDob,
         gender: formGender,
         village: formVillage,
@@ -108,46 +133,50 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
         <div className="w-8"></div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar space-y-5 pb-6">
+      {/* Main scrollable body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 pb-6">
         
-        {/* Avatar custom upload selector */}
-        <div className="flex flex-col items-center space-y-2">
-          <div className="relative group">
-            <img
-              src={selectedAvatar}
-              alt="Profile Edit"
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"
-            >
-              <span className="material-symbols-rounded text-lg">add_a_photo</span>
-            </button>
+        {error && (
+          <div className="bg-red-50 text-red-650 p-3 rounded-xl text-xs font-semibold select-none flex items-center space-x-1 border border-red-500/10">
+            <span className="material-symbols-rounded text-base">error</span>
+            <span>{error}</span>
           </div>
-          <input
+        )}
+
+        {/* Profile Picture Section */}
+        <div className="flex flex-col items-center space-y-3 pt-2 select-none">
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md cursor-pointer hover:opacity-90 active:scale-95 transition"
+          >
+            <img 
+              src={selectedAvatar} 
+              alt="Avatar preview" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition duration-200">
+              <span className="material-symbols-rounded text-white text-lg">add_a_photo</span>
+            </div>
+          </div>
+          
+          <input 
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
             accept="image/*"
             className="hidden"
           />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="text-[10px] text-blue-600 font-bold hover:underline cursor-pointer uppercase tracking-wider"
-          >
-            Upload Custom Photo
-          </button>
-          
-          <div className="flex space-x-2 pt-1 select-none">
+
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Preset Avatars</span>
+          <div className="flex space-x-2">
             {avatarOptions.map((avatar, idx) => (
               <button
                 key={idx}
                 onClick={() => {
+                  setCustomFile(null);
                   setSelectedAvatar(avatar);
-                  setCustomFile(null); // Clear custom upload if picking preset
                 }}
-                className={`w-10 h-10 rounded-full overflow-hidden border-2 transition cursor-pointer ${selectedAvatar === avatar ? 'border-blue-600 scale-105 shadow' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                className={`w-9 h-9 rounded-full overflow-hidden border-2 transition cursor-pointer ${selectedAvatar === avatar && !customFile ? 'border-blue-600 scale-105 shadow' : 'border-transparent opacity-75 hover:opacity-100'}`}
               >
                 <img src={avatar} alt={`Preset ${idx}`} className="w-full h-full object-cover" />
               </button>
@@ -155,28 +184,22 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
           </div>
         </div>
 
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-650 text-xs rounded-xl font-semibold text-center select-none">
-            {error}
-          </div>
-        )}
-
-        {/* Input Fields */}
+        {/* Inputs list */}
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">Full Name</label>
-            <input
+            <input 
               type="text"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="Enter full name"
+              placeholder="Enter name"
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
             />
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">Father's Name</label>
-            <input
+            <input 
               type="text"
               value={formFatherName}
               onChange={(e) => setFormFatherName(e.target.value)}
@@ -187,23 +210,54 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">Class Batch</label>
-            <select
-              value={formClass}
-              onChange={(e) => setFormClass(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition cursor-pointer"
-            >
-              <option value="Class 11 - Science">Class 11 - Science Batch</option>
-              <option value="Class 12 - Science">Class 12 - Science Batch</option>
-              <option value="Class 11 - Commerce">Class 11 - Commerce Batch</option>
-              <option value="Class 12 - Commerce">Class 12 - Commerce Batch</option>
-              <option value="IIT-JEE / NEET Target">IIT-JEE / NEET Target Batch</option>
-            </select>
+            <div className="relative">
+              {classesLoading ? (
+                <select
+                  disabled
+                  className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 appearance-none cursor-not-allowed"
+                >
+                  <option>Loading classes...</option>
+                </select>
+              ) : classes.length === 0 ? (
+                <select
+                  disabled
+                  className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-550 appearance-none cursor-not-allowed"
+                >
+                  <option>No classes available.</option>
+                </select>
+              ) : (
+                <select
+                  value={formClassId}
+                  onChange={(e) => {
+                    const cid = e.target.value;
+                    const matched = selectOptions.find(c => c.classId === cid);
+                    setFormClassId(cid);
+                    if (matched) {
+                      setFormClassName(matched.className);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition cursor-pointer"
+                >
+                  {selectOptions.map((cls) => (
+                    <option key={cls.id} value={cls.classId}>
+                      {cls.className} Batch {cls.isActive === false ? "(Inactive)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {isSavedClassInactive && (
+              <p className="text-[10px] text-orange-600 font-bold pl-1 flex items-center space-x-1 pt-1 select-none">
+                <span className="material-symbols-rounded text-xs">warning</span>
+                <span>This class is no longer active.</span>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-700">Village</label>
-              <input
+              <input 
                 type="text"
                 value={formVillage}
                 onChange={(e) => setFormVillage(e.target.value)}
@@ -214,7 +268,7 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
             
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-700">Gender</label>
-              <select
+              <select 
                 value={formGender}
                 onChange={(e) => setFormGender(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition cursor-pointer"
@@ -228,7 +282,7 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">Date of Birth</label>
-            <input
+            <input 
               type="date"
               value={formDob}
               onChange={(e) => setFormDob(e.target.value)}
@@ -236,27 +290,22 @@ export default function EditProfile({ uid, profile, onProfileUpdate }: EditProfi
             />
           </div>
         </div>
+
       </div>
 
-      {/* Action triggers */}
-      <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 select-none">
-        <button
-          onClick={() => navigate('/dashboard/profile')}
-          className="py-3 border border-slate-250 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition active:scale-95 text-xs text-center cursor-pointer"
-        >
-          Cancel
-        </button>
-        <button
+      {/* Bottom Save Action */}
+      <div className="pt-4 border-t border-slate-100">
+        <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-md transition active:scale-[0.98] text-xs text-center flex items-center justify-center space-x-1 cursor-pointer"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-[20px] shadow-lg shadow-blue-500/20 active:scale-[0.98] transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
         >
           {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           ) : (
             <>
-              <span className="material-symbols-rounded text-sm">save</span>
-              <span>Save</span>
+              <span className="material-symbols-rounded">save</span>
+              <span>Save Changes</span>
             </>
           )}
         </button>

@@ -13,6 +13,14 @@ export interface StudentProfile {
   isRegistered?: boolean;
 }
 
+export interface ClassItem {
+  id: string;
+  className: string;
+  classId: string;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
 export interface Subject {
   id: string;
   name: string;

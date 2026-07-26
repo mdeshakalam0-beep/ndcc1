@@ -1,21 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, hasConfig } from '../config/firebase';
-import type { StudentProfile } from '../types';
+import type { StudentProfile, ClassItem } from '../types';
 
 interface RegisterProps {
   uid: string;
   profile: StudentProfile;
+  classes: ClassItem[];
+  classesLoading: boolean;
   onRegisterComplete: (profile: StudentProfile) => void;
 }
 
-export default function Register({ uid, profile, onRegisterComplete }: RegisterProps) {
+export default function Register({ uid, profile, classes, classesLoading, onRegisterComplete }: RegisterProps) {
   const navigate = useNavigate();
   const [formStep, setFormStep] = useState(1);
   const [formName, setFormName] = useState(profile.name);
   const [formFatherName, setFormFatherName] = useState(profile.fatherName);
-  const [formClass, setFormClass] = useState("Class 12 - Science");
+  
+  const [formClassId, setFormClassId] = useState(profile.classId || "");
+  const [formClassName, setFormClassName] = useState(profile.className || "");
+
   const [formDob, setFormDob] = useState(profile.dob);
   const [formGender, setFormGender] = useState(profile.gender);
   const [formVillage, setFormVillage] = useState(profile.village);
@@ -30,6 +35,31 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
     "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200&h=200",
     "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200&h=200"
   ];
+
+  // Auto-initialize formClassId and formClassName when classes list is loaded
+  useEffect(() => {
+    if (classes.length > 0) {
+      const hasSaved = classes.some(c => c.classId === formClassId);
+      if (!formClassId || !hasSaved) {
+        if (!formClassId) {
+          setFormClassId(classes[0].classId);
+          setFormClassName(classes[0].className);
+        }
+      }
+    }
+  }, [classes, formClassId]);
+
+  // Local list of options to display, appending the saved class if it is inactive/missing from list
+  const selectOptions = [...classes];
+  const isSavedClassInactive = formClassId && !classes.some(c => c.classId === formClassId);
+  if (isSavedClassInactive) {
+    selectOptions.push({
+      id: "inactive-saved",
+      classId: formClassId,
+      className: formClassName || "Saved Inactive Class",
+      isActive: false
+    });
+  }
 
   const handleContinue = async () => {
     const errors: Record<string, string> = {};
@@ -52,15 +82,12 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
       setFormStep(2);
     } else {
       setIsSaving(true);
-      const getClassIdFromName = (name: string): string => {
-        return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      };
 
       const studentProfile: StudentProfile = {
         name: formName,
         fatherName: formFatherName,
-        className: formClass,
-        classId: getClassIdFromName(formClass),
+        className: formClassName,
+        classId: formClassId,
         dob: formDob,
         gender: formGender,
         village: formVillage,
@@ -70,7 +97,6 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
 
       try {
         if (hasConfig && db) {
-          // Write to Cloud Firestore
           console.log("🔍 [Firestore Register] Attempting write to path: students/" + uid);
           await setDoc(doc(db, "students", uid), studentProfile);
           console.log("✅ [Firestore Register] Profile document saved successfully in Firestore.");
@@ -175,7 +201,7 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
                   type="text"
                   value={formFatherName}
                   onChange={(e) => setFormFatherName(e.target.value)}
-                  placeholder="Enter father's name"
+                  placeholder="Father's full name"
                   className={`w-full pl-10 pr-4 py-3 bg-white border ${formErrors.fatherName ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-blue-100'} rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 transition`}
                 />
               </div>
@@ -187,19 +213,48 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
               <label className="text-xs font-semibold text-slate-700">Class Batch *</label>
               <div className="relative">
                 <span className="material-symbols-rounded absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">school</span>
-                <select
-                  value={formClass}
-                  onChange={(e) => setFormClass(e.target.value)}
-                  className="w-full pl-10 pr-8 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition appearance-none cursor-pointer"
-                >
-                  <option value="Class 11 - Science">Class 11 - Science Batch</option>
-                  <option value="Class 12 - Science">Class 12 - Science Batch</option>
-                  <option value="Class 11 - Commerce">Class 11 - Commerce Batch</option>
-                  <option value="Class 12 - Commerce">Class 12 - Commerce Batch</option>
-                  <option value="IIT-JEE / NEET Target">IIT-JEE / NEET Target Batch</option>
-                </select>
+                {classesLoading ? (
+                  <select
+                    disabled
+                    className="w-full pl-10 pr-8 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 appearance-none cursor-not-allowed"
+                  >
+                    <option>Loading classes...</option>
+                  </select>
+                ) : classes.length === 0 ? (
+                  <select
+                    disabled
+                    className="w-full pl-10 pr-8 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-550 appearance-none cursor-not-allowed"
+                  >
+                    <option>No classes available.</option>
+                  </select>
+                ) : (
+                  <select
+                    value={formClassId}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      const matched = selectOptions.find(c => c.classId === cid);
+                      setFormClassId(cid);
+                      if (matched) {
+                        setFormClassName(matched.className);
+                      }
+                    }}
+                    className="w-full pl-10 pr-8 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition appearance-none cursor-pointer"
+                  >
+                    {selectOptions.map((cls) => (
+                      <option key={cls.id} value={cls.classId}>
+                        {cls.className} Batch {cls.isActive === false ? "(Inactive)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <span className="material-symbols-rounded absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">arrow_drop_down</span>
               </div>
+              {isSavedClassInactive && (
+                <p className="text-[10px] text-orange-600 font-bold pl-1 flex items-center space-x-1 pt-1 select-none">
+                  <span className="material-symbols-rounded text-xs">warning</span>
+                  <span>This class is no longer active.</span>
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -231,7 +286,7 @@ export default function Register({ uid, profile, onRegisterComplete }: RegisterP
                     className={`py-3 rounded-xl border text-sm font-medium transition flex items-center justify-center space-x-2 cursor-pointer ${
                       formGender === gen 
                         ? 'bg-blue-600/10 border-blue-600 text-blue-600 font-bold' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
                     }`}
                   >
                     <span className="material-symbols-rounded text-base">
