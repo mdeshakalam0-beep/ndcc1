@@ -118,7 +118,7 @@ export default function LiveClasses({ liveClasses }: LiveClassesProps) {
                   <>
                     <iframe
                       id="live-player-iframe"
-                      src={`${embedUrl}?autoplay=0&rel=0&modestbranding=1&origin=${window.location.origin}`}
+                      src={embedUrl}
                       title={activeStream.title}
                       className="absolute inset-0 w-full h-full border-none"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

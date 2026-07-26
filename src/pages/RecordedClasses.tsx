@@ -231,7 +231,7 @@ export default function RecordedClasses({ recordedClasses }: RecordedClassesProp
                   <>
                     <iframe
                       id="youtube-player"
-                      src={`${activeEmbedUrl}?enablejsapi=1&autoplay=0&rel=0&modestbranding=1&origin=${window.location.origin}`}
+                      src={activeEmbedUrl}
                       title={activeVideo.title}
                       className="absolute inset-0 w-full h-full border-none"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
