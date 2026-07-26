@@ -247,14 +247,24 @@ export default function App() {
               }, (err) => console.warn("⚠️ notifications listener failed:", err));
 
               // Banners Listener
-              bannersUnsub = onSnapshot(collection(db, "banners"), (snap) => {
+              console.log("📡 [Firestore heroBanners] Subscribing. Collection Path: heroBanners, Student classId:", studentClassId);
+              bannersUnsub = onSnapshot(collection(db, "heroBanners"), (snap) => {
+                console.log(`📡 [Firestore heroBanners] Received snapshot. Size: ${snap.size} documents.`);
                 const list: any[] = [];
                 snap.forEach(dSnap => {
                   const data = dSnap.data();
-                  if (!data.classId || data.classId === studentClassId || data.classId === "all") {
+                  console.log(`📡 [Firestore heroBanners] Document ID: ${dSnap.id}`, JSON.stringify(data));
+                  
+                  // Filter by enabled (enabled === true or missing/undefined for backward compatibility)
+                  const isEnabled = data.enabled !== false; 
+                  // Filter by classId: studentClassId, "all", or missing/undefined
+                  const isMatchClass = !data.classId || data.classId === studentClassId || data.classId === "all";
+
+                  if (isEnabled && isMatchClass) {
                     list.push({ id: dSnap.id, ...data });
                   }
                 });
+                console.log(`📡 [Firestore heroBanners] Filtered list size: ${list.length}`);
                 setBanners(list);
               }, (err) => console.warn("⚠️ banners listener failed:", err));
 
