@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogoSVG } from '../components/Illustrations';
 import type { StudentProfile, Subject, ObjectiveTest, NotificationItem } from '../types';
 
 interface DashboardProps {
@@ -38,15 +37,43 @@ export default function Dashboard({
 
   // Hero Slider State
   const [heroIndex, setHeroIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
   const [subjectSearch, setSubjectSearch] = useState('');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string | null>(null);
 
-  // Auto-slide hero banner
+  // Minimum swipe distance in pixels
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      setHeroIndex((prev) => (prev + 1) % banners.length);
+    } else if (isRightSwipe) {
+      setHeroIndex((prev) => (prev - 1 + banners.length) % banners.length);
+    }
+  };
+
+  // Auto-slide hero banner every 4 seconds
   useEffect(() => {
     if (activeTab === 'home' && banners.length > 1) {
       const timer = setInterval(() => {
         setHeroIndex((prev) => (prev + 1) % banners.length);
-      }, 5000);
+      }, 4000);
       return () => clearInterval(timer);
     }
   }, [activeTab, banners]);
@@ -88,36 +115,80 @@ export default function Dashboard({
           </div>
 
           {/* Banner Slider */}
-          <div className="relative h-44 rounded-[24px] overflow-hidden shadow-lg shadow-blue-500/5 select-none">
+          <div 
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            className="relative h-44 rounded-[24px] overflow-hidden shadow-lg shadow-blue-500/5 select-none"
+          >
             {banners.length > 0 ? (
-              banners.map((slide, idx) => (
-                <div
-                  key={slide.id || idx}
-                  className={`absolute inset-0 bg-gradient-to-br ${slide.color || 'from-blue-650 via-blue-700 to-indigo-850'} text-white p-5 flex flex-col justify-between transition-all duration-500 ${
-                    heroIndex === idx ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="bg-white/20 text-white font-bold text-[9px] tracking-widest px-2.5 py-1 rounded-full uppercase backdrop-blur-sm border border-white/10">
-                      {slide.accent || 'INFO'}
-                    </span>
-                    <LogoSVG className="w-6 h-6 opacity-40" />
+              banners.map((slide, idx) => {
+                const hasImage = !!slide.imageUrl;
+                
+                return (
+                  <div
+                    key={slide.id || idx}
+                    className={`absolute inset-0 text-white flex flex-col justify-between transition-all duration-500 ${
+                      heroIndex === idx ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'
+                    }`}
+                    style={{
+                      backgroundColor: !hasImage ? (slide.color || '#2563eb') : undefined
+                    }}
+                  >
+                    {/* Background image if exists */}
+                    {hasImage && (
+                      <>
+                        <img 
+                          src={slide.imageUrl} 
+                          alt={slide.title || "Banner"} 
+                          className="absolute inset-0 w-full h-full object-cover z-0"
+                          loading="lazy"
+                        />
+                        {/* Subtle dark gradient overlay to improve text readability */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent z-1"></div>
+                      </>
+                    )}
+                    
+                    {/* Content Layer */}
+                    <div className="relative z-10 p-5 flex flex-col justify-between h-full w-full">
+                      {/* Top Row with Tag */}
+                      <div className="flex justify-between items-start">
+                        <span className="bg-white/25 text-white font-black text-[8px] tracking-widest px-2.5 py-1 rounded-full uppercase backdrop-blur-sm border border-white/10 shadow-sm leading-none">
+                          {slide.accent || 'NOTICE'}
+                        </span>
+                      </div>
+                      
+                      {/* Bottom Title, Desc, and CTA Button */}
+                      <div className="flex items-end justify-between space-x-4 pt-4">
+                        <div className="space-y-1.5 max-w-[65%] text-left">
+                          <h4 className="text-sm font-black leading-tight text-white drop-shadow-md">
+                            {slide.title || "Announcements"}
+                          </h4>
+                          <p className="text-[10px] text-white/90 font-medium leading-tight line-clamp-2 drop-shadow-sm">
+                            {slide.desc || slide.description || "View details for this new update inside the coaching system."}
+                          </p>
+                        </div>
+                        
+                        {/* CTA Action Button */}
+                        <button 
+                          onClick={() => alert(`Redirecting to Notice: ${slide.title}`)}
+                          className="flex-shrink-0 bg-white text-blue-600 hover:bg-slate-100 font-extrabold text-[9px] px-3.5 py-2 rounded-xl uppercase tracking-wider flex items-center space-x-1 shadow transition active:scale-95 cursor-pointer leading-none"
+                        >
+                          <span>View Notice</span>
+                          <span className="material-symbols-rounded text-[10px] font-black">arrow_forward</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-1">
-                    <h4 className="text-base font-bold leading-tight">{slide.title}</h4>
-                    <p className="text-[11px] text-blue-105 font-medium leading-relaxed max-w-[85%]">{slide.desc}</p>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               /* Default Branded Fallback Banner */
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-5 flex flex-col justify-between">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-5 flex flex-col justify-between relative z-10">
                 <div className="flex justify-between items-start">
                   <span className="bg-white/20 text-white font-bold text-[9px] tracking-widest px-2.5 py-1 rounded-full uppercase backdrop-blur-sm border border-white/10">
                     WELCOME
                   </span>
-                  <LogoSVG className="w-6 h-6 opacity-40" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-base font-bold leading-tight">NEW DIRECTION Coaching Portal</h4>
@@ -128,13 +199,14 @@ export default function Dashboard({
               </div>
             )}
             
+            {/* Pagination dots at the bottom center */}
             {banners.length > 1 && (
-              <div className="absolute right-4 top-4 flex space-x-1">
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-1.5 z-10">
                 {banners.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setHeroIndex(idx)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${heroIndex === idx ? 'bg-white w-3' : 'bg-white/40'}`}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${heroIndex === idx ? 'bg-white w-4' : 'bg-white/40'}`}
                   ></button>
                 ))}
               </div>
